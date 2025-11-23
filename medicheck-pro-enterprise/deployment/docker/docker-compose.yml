@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  medicheck-pro:
+    build: 
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - ENV=development
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - medicheck-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: medicheck
+      POSTGRES_USER: medicheck_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - medicheck-net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - medicheck-net
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  vector-db:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_DB: medicheck_vector
+      POSTGRES_USER: medicheck_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - vector_data:/var/lib/postgresql/data
+    networks:
+      - medicheck-net
+    restart: unless-stopped
+
+networks:
+  medicheck-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  vector_data:
